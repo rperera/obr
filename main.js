@@ -199,12 +199,13 @@ var BratSettingTab = class extends import_obsidian2.PluginSettingTab {
       );
       new import_obsidian2.Setting(containerEl).setName("Access token").setDesc(
         "Fine-grained personal access token with read-only Contents permission on this repository. Stored in plain text in this vault's plugin settings. Leave empty for a public repository."
-      ).addText(
-        (text) => text.setPlaceholder("github_pat_\u2026").setValue(managed.token).onChange(async (value) => {
+      ).addText((text) => {
+        text.inputEl.type = "password";
+        text.setPlaceholder("github_pat_\u2026").setValue(managed.token).onChange(async (value) => {
           managed.token = value;
           await this.plugin.saveSettings();
-        })
-      );
+        });
+      });
     }
     new import_obsidian2.Setting(containerEl).setName("Pinned tag").setDesc(
       "Install exactly this release tag instead of the latest release; leave empty to follow the newest release."
@@ -302,6 +303,11 @@ async function installFromRepo(app, managed) {
   if (typeof manifest.id !== "string" || !manifest.id) {
     throw new Error(
       `release ${release.tagName}: manifest.json has no plugin id`
+    );
+  }
+  if (!/^[\w-]+$/.test(manifest.id)) {
+    throw new Error(
+      `release ${release.tagName}: refusing plugin id "${manifest.id}" (only letters, digits, hyphens, and underscores are allowed)`
     );
   }
   const [mainBytes, stylesBytes] = await Promise.all([
