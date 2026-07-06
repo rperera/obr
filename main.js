@@ -24,100 +24,8 @@ __export(main_exports, {
 module.exports = __toCommonJS(main_exports);
 var import_obsidian4 = require("obsidian");
 
-// src/settings-tab.ts
-var import_obsidian = require("obsidian");
-
-// src/types.ts
-var DEFAULT_SETTINGS = {
-  managed: [],
-  checkOnStartup: true
-};
-function emptyManagedPlugin() {
-  return {
-    repoUrl: "",
-    token: "",
-    pinnedTag: "",
-    installedTag: "",
-    installedPluginId: ""
-  };
-}
-
-// src/settings-tab.ts
-var BratSettingTab = class extends import_obsidian.PluginSettingTab {
-  constructor(app, plugin) {
-    super(app, plugin);
-    this.plugin = plugin;
-  }
-  display() {
-    const { containerEl } = this;
-    containerEl.empty();
-    new import_obsidian.Setting(containerEl).setName("Check for updates at startup").setDesc("Report available updates in a notice when Obsidian starts.").addToggle(
-      (toggle) => toggle.setValue(this.plugin.settings.checkOnStartup).onChange(async (value) => {
-        this.plugin.settings.checkOnStartup = value;
-        await this.plugin.saveSettings();
-      })
-    );
-    new import_obsidian.Setting(containerEl).setName("Managed plugins").setHeading();
-    this.plugin.settings.managed.forEach((managed, index) => {
-      this.displayManagedPlugin(containerEl, managed, index);
-    });
-    new import_obsidian.Setting(containerEl).addButton(
-      (button) => button.setButtonText("Add managed plugin").setCta().onClick(async () => {
-        this.plugin.settings.managed.push(emptyManagedPlugin());
-        await this.plugin.saveSettings();
-        this.display();
-      })
-    );
-  }
-  displayManagedPlugin(containerEl, managed, index) {
-    const title = managed.installedPluginId ? `${index + 1}. ${managed.installedPluginId}` : `${index + 1}. New plugin`;
-    const status = managed.installedTag ? `Installed: ${managed.installedPluginId} ${managed.installedTag}` : "Not installed yet.";
-    new import_obsidian.Setting(containerEl).setName(title).setDesc(status).addButton(
-      (button) => button.setButtonText("Check").setTooltip("Check this repository for an update").onClick(() => void this.plugin.checkOne(managed))
-    ).addButton(
-      (button) => button.setButtonText("Update").setTooltip("Install the target release now").onClick(async () => {
-        await this.plugin.updateOne(managed);
-        this.display();
-      })
-    ).addButton(
-      (button) => button.setButtonText("Remove").setWarning().setTooltip(
-        "Stop managing this repository (installed plugin files are kept)"
-      ).onClick(async () => {
-        this.plugin.settings.managed.splice(index, 1);
-        await this.plugin.saveSettings();
-        this.display();
-      })
-    );
-    new import_obsidian.Setting(containerEl).setName("Repository").setDesc('GitHub URL or "owner/repo".').addText(
-      (text) => text.setPlaceholder("https://github.com/owner/repo").setValue(managed.repoUrl).onChange(async (value) => {
-        managed.repoUrl = value;
-        await this.plugin.saveSettings();
-      })
-    );
-    new import_obsidian.Setting(containerEl).setName("Access token").setDesc(
-      "Fine-grained personal access token with read-only Contents permission on this repository. Stored in plain text in this vault's plugin settings. Leave empty for a public repository."
-    ).addText(
-      (text) => text.setPlaceholder("github_pat_\u2026").setValue(managed.token).onChange(async (value) => {
-        managed.token = value;
-        await this.plugin.saveSettings();
-      })
-    );
-    new import_obsidian.Setting(containerEl).setName("Pinned tag").setDesc(
-      "Install exactly this release tag instead of the latest release; leave empty to follow the newest release."
-    ).addText(
-      (text) => text.setPlaceholder("latest").setValue(managed.pinnedTag).onChange(async (value) => {
-        managed.pinnedTag = value;
-        await this.plugin.saveSettings();
-      })
-    );
-  }
-};
-
-// src/updater.ts
-var import_obsidian3 = require("obsidian");
-
 // src/github.ts
-var import_obsidian2 = require("obsidian");
+var import_obsidian = require("obsidian");
 var API_ROOT = "https://api.github.com";
 var API_VERSION = "2022-11-28";
 function parseRepo(repoUrl) {
@@ -143,7 +51,7 @@ async function apiGet(url, token, accept) {
   if (token.trim()) {
     headers.Authorization = `Bearer ${token.trim()}`;
   }
-  return (0, import_obsidian2.requestUrl)({ url, headers, throw: false });
+  return (0, import_obsidian.requestUrl)({ url, headers, throw: false });
 }
 function requireOk(response, context) {
   if (response.status >= 200 && response.status < 300) {
@@ -212,6 +120,105 @@ async function downloadAsset(asset, token) {
   requireOk(response, `asset ${asset.name}`);
   return response.arrayBuffer;
 }
+
+// src/settings-tab.ts
+var import_obsidian2 = require("obsidian");
+
+// src/types.ts
+var SELF_REPO_URL = "https://github.com/rperera/obr";
+var DEFAULT_SETTINGS = {
+  managed: [],
+  checkOnStartup: true
+};
+function emptyManagedPlugin() {
+  return {
+    repoUrl: "",
+    token: "",
+    pinnedTag: "",
+    installedTag: "",
+    installedPluginId: ""
+  };
+}
+
+// src/settings-tab.ts
+var BratSettingTab = class extends import_obsidian2.PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    new import_obsidian2.Setting(containerEl).setName("Check for updates at startup").setDesc("Report available updates in a notice when Obsidian starts.").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.checkOnStartup).onChange(async (value) => {
+        this.plugin.settings.checkOnStartup = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian2.Setting(containerEl).setName("Managed plugins").setHeading();
+    this.plugin.settings.managed.forEach((managed, index) => {
+      this.displayManagedPlugin(containerEl, managed, index);
+    });
+    new import_obsidian2.Setting(containerEl).addButton(
+      (button) => button.setButtonText("Add managed plugin").setCta().onClick(async () => {
+        this.plugin.settings.managed.push(emptyManagedPlugin());
+        await this.plugin.saveSettings();
+        this.display();
+      })
+    );
+  }
+  displayManagedPlugin(containerEl, managed, index) {
+    const isSelf = managed.installedPluginId === this.plugin.manifest.id;
+    const title = isSelf ? `${index + 1}. ${managed.installedPluginId} (this plugin)` : managed.installedPluginId ? `${index + 1}. ${managed.installedPluginId}` : `${index + 1}. New plugin`;
+    const status = isSelf ? `Updates itself from ${managed.repoUrl}. Installed: ${managed.installedTag}` : managed.installedTag ? `Installed: ${managed.installedPluginId} ${managed.installedTag}` : "Not installed yet.";
+    const heading = new import_obsidian2.Setting(containerEl).setName(title).setDesc(status).addButton(
+      (button) => button.setButtonText("Check").setTooltip("Check this repository for an update").onClick(() => void this.plugin.checkOne(managed))
+    ).addButton(
+      (button) => button.setButtonText("Update").setTooltip("Install the target release now").onClick(async () => {
+        await this.plugin.updateOne(managed);
+        this.display();
+      })
+    );
+    if (!isSelf) {
+      heading.addButton(
+        (button) => button.setButtonText("Remove").setWarning().setTooltip(
+          "Stop managing this repository (installed plugin files are kept)"
+        ).onClick(async () => {
+          this.plugin.settings.managed.splice(index, 1);
+          await this.plugin.saveSettings();
+          this.display();
+        })
+      );
+    }
+    if (!isSelf) {
+      new import_obsidian2.Setting(containerEl).setName("Repository").setDesc('GitHub URL or "owner/repo".').addText(
+        (text) => text.setPlaceholder("https://github.com/owner/repo").setValue(managed.repoUrl).onChange(async (value) => {
+          managed.repoUrl = value;
+          await this.plugin.saveSettings();
+        })
+      );
+      new import_obsidian2.Setting(containerEl).setName("Access token").setDesc(
+        "Fine-grained personal access token with read-only Contents permission on this repository. Stored in plain text in this vault's plugin settings. Leave empty for a public repository."
+      ).addText(
+        (text) => text.setPlaceholder("github_pat_\u2026").setValue(managed.token).onChange(async (value) => {
+          managed.token = value;
+          await this.plugin.saveSettings();
+        })
+      );
+    }
+    new import_obsidian2.Setting(containerEl).setName("Pinned tag").setDesc(
+      "Install exactly this release tag instead of the latest release; leave empty to follow the newest release."
+    ).addText(
+      (text) => text.setPlaceholder("latest").setValue(managed.pinnedTag).onChange(async (value) => {
+        managed.pinnedTag = value;
+        await this.plugin.saveSettings();
+      })
+    );
+  }
+};
+
+// src/updater.ts
+var import_obsidian3 = require("obsidian");
 
 // src/versions.ts
 function parseVersion(tag) {
@@ -330,6 +337,11 @@ async function reloadInstalledPlugin(app, pluginId) {
 }
 
 // src/main.ts
+var SELF_REPO = parseRepo(SELF_REPO_URL);
+function isSelfRepo(repoUrl) {
+  const ref = parseRepo(repoUrl);
+  return ref !== null && ref.owner.toLowerCase() === SELF_REPO.owner.toLowerCase() && ref.repo.toLowerCase() === SELF_REPO.repo.toLowerCase();
+}
 var BratPlugin = class extends import_obsidian4.Plugin {
   constructor() {
     super(...arguments);
@@ -362,6 +374,42 @@ var BratPlugin = class extends import_obsidian4.Plugin {
       ...emptyManagedPlugin(),
       ...entry
     }));
+    if (this.ensureSelfEntry()) {
+      await this.saveSettings();
+    }
+  }
+  /**
+   * Brat updates itself from its public release channel (SELF_REPO_URL);
+   * the entry for it is built in, not user configuration. Ensure it exists
+   * on every load: repoint an existing self entry that tracks another
+   * repository (e.g. the private source repo, from before releases moved),
+   * or seed a fresh one. The running version counts as installed so a
+   * fresh entry does not reinstall the release that is already running.
+   */
+  ensureSelfEntry() {
+    var _a;
+    const self = (_a = this.settings.managed.find(
+      (entry) => entry.installedPluginId === this.manifest.id
+    )) != null ? _a : this.settings.managed.find((entry) => isSelfRepo(entry.repoUrl));
+    if (!self) {
+      this.settings.managed.unshift({
+        ...emptyManagedPlugin(),
+        repoUrl: SELF_REPO_URL,
+        installedTag: this.manifest.version,
+        installedPluginId: this.manifest.id
+      });
+      return true;
+    }
+    if (isSelfRepo(self.repoUrl) && !self.token && self.installedPluginId === this.manifest.id) {
+      return false;
+    }
+    self.repoUrl = SELF_REPO_URL;
+    self.token = "";
+    self.installedPluginId = this.manifest.id;
+    if (!self.installedTag) {
+      self.installedTag = this.manifest.version;
+    }
+    return true;
   }
   async saveSettings() {
     await this.saveData(this.settings);
