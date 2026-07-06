@@ -1,0 +1,9 @@
+{
+    "id": "brat",
+    "name": "Brat",
+    "version": "1.0.0",
+    "minAppVersion": "1.7.2",
+    "description": "Install and update Obsidian plugins from private GitHub repositories using per-repository access tokens.",
+    "author": "rperera",
+    "isDesktopOnly": false
+}
