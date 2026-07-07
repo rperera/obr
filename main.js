@@ -111,6 +111,29 @@ async function fetchReleaseByTag(ref, tag, token) {
   requireOk(response, context);
   return toRelease(response.json);
 }
+async function fetchReleaseTags(ref, token) {
+  const context = `${ref.owner}/${ref.repo}`;
+  const response = await apiGet(
+    `${API_ROOT}/repos/${ref.owner}/${ref.repo}/releases?per_page=100`,
+    token,
+    "application/vnd.github+json"
+  );
+  requireOk(response, context);
+  const releases = response.json;
+  if (!Array.isArray(releases)) {
+    throw new Error(`${context}: unexpected GitHub releases payload`);
+  }
+  const tags = [];
+  for (const release of releases) {
+    if (release.draft === true) {
+      continue;
+    }
+    if (typeof release.tag_name === "string" && release.tag_name) {
+      tags.push(release.tag_name);
+    }
+  }
+  return tags;
+}
 async function downloadAsset(asset, token) {
   const response = await apiGet(
     asset.url,
@@ -135,6 +158,7 @@ function emptyManagedPlugin() {
     repoUrl: "",
     token: "",
     pinnedTag: "",
+    availableTags: [],
     installedTag: "",
     installedPluginId: ""
   };
@@ -215,11 +239,28 @@ var BratSettingTab = class extends import_obsidian2.PluginSettingTab {
       });
     }
     new import_obsidian2.Setting(containerEl).setName("Pinned tag").setDesc(
-      "Install exactly this release tag instead of the latest release; leave empty to follow the newest release."
-    ).addText(
-      (text) => text.setPlaceholder("latest").setValue(managed.pinnedTag).onChange(async (value) => {
+      `Install exactly this release tag instead of the latest release. Choose "latest" to follow the newest release. Use Refresh to fetch the repository's release tags.`
+    ).addDropdown((dropdown) => {
+      dropdown.addOption("", "latest");
+      const seen = /* @__PURE__ */ new Set();
+      for (const tag of managed.availableTags) {
+        if (!seen.has(tag)) {
+          seen.add(tag);
+          dropdown.addOption(tag, tag);
+        }
+      }
+      const pinned = managed.pinnedTag.trim();
+      if (pinned && !seen.has(pinned)) {
+        dropdown.addOption(pinned, `${pinned} (not in list)`);
+      }
+      dropdown.setValue(pinned).onChange(async (value) => {
         managed.pinnedTag = value;
         await this.plugin.saveSettings();
+      });
+    }).addExtraButton(
+      (button) => button.setIcon("refresh-cw").setTooltip("Fetch this repository's release tags").onClick(async () => {
+        await this.plugin.refreshTags(managed);
+        this.display();
       })
     );
   }
@@ -541,6 +582,32 @@ Update from the Brat settings tab or the "Update all managed plugins" command.`,
       if (selfUpdated) {
         this.reloadSelf();
       }
+    }
+  }
+  /**
+   * Refresh the cached list of release tags for one entry (settings-tab
+   * button), so the pinned-tag dropdown can offer the repository's tags.
+   */
+  async refreshTags(managed) {
+    if (!this.claimBusy()) {
+      return;
+    }
+    try {
+      const ref = parseRepo(managed.repoUrl);
+      if (!ref) {
+        throw new Error(
+          `not a recognizable GitHub repository: "${managed.repoUrl}"`
+        );
+      }
+      managed.availableTags = await fetchReleaseTags(ref, managed.token);
+      await this.saveSettings();
+      new import_obsidian4.Notice(
+        managed.availableTags.length > 0 ? `Brat: ${this.describe(managed)} \u2014 ${managed.availableTags.length} release tag(s) found` : `Brat: ${this.describe(managed)} has no published releases`
+      );
+    } catch (error) {
+      this.reportError("refresh tags", managed, error);
+    } finally {
+      this.busy = false;
     }
   }
   /** Check a single entry (settings-tab button). */
