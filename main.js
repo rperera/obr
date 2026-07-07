@@ -178,6 +178,13 @@ var BratSettingTab = class extends import_obsidian2.PluginSettingTab {
         await this.plugin.updateOne(managed);
         this.display();
       })
+    ).addButton(
+      (button) => button.setButtonText("Re-install").setTooltip(
+        "Re-download and reinstall the target release, even if already installed (settings/data.json are kept)"
+      ).onClick(async () => {
+        await this.plugin.reinstallOne(managed);
+        this.display();
+      })
     );
     if (!isSelf) {
       heading.addButton(
@@ -288,10 +295,10 @@ function requireAsset(release, name) {
   }
   return asset;
 }
-async function installFromRepo(app, managed) {
+async function installFromRepo(app, managed, force = false) {
   var _a;
   const release = await resolveRelease(managed);
-  if (!releaseIsUpdate(managed, release)) {
+  if (!force && !releaseIsUpdate(managed, release)) {
     return null;
   }
   const manifestAsset = requireAsset(release, "manifest.json");
@@ -511,6 +518,31 @@ Update from the Brat settings tab or the "Update all managed plugins" command.`,
       }
     }
   }
+  /**
+   * Re-install a single entry (settings-tab button): download and write the
+   * target release again even when it matches the installed version. Only
+   * the plugin's code/manifest/styles are overwritten — its data.json
+   * (settings) is never touched.
+   */
+  async reinstallOne(managed) {
+    if (!this.claimBusy()) {
+      return;
+    }
+    let selfUpdated = false;
+    try {
+      const outcome = await this.installOne(managed, true);
+      if (outcome === "self-updated") {
+        selfUpdated = true;
+      }
+    } catch (error) {
+      this.reportError("re-install", managed, error);
+    } finally {
+      this.busy = false;
+      if (selfUpdated) {
+        this.reloadSelf();
+      }
+    }
+  }
   /** Check a single entry (settings-tab button). */
   async checkOne(managed) {
     if (!this.claimBusy()) {
@@ -528,13 +560,14 @@ Update from the Brat settings tab or the "Update all managed plugins" command.`,
     }
   }
   /**
-   * Install the target release and record the result. Reloads the
-   * installed plugin unless the files written were Brat's own — reloading
-   * ourself here would unload the code that is still running, so the
-   * caller does that once all other work has finished.
+   * Install the target release and record the result. When `force` is set
+   * the release is written even if it matches the installed version (a
+   * re-install). Reloads the installed plugin unless the files written were
+   * Brat's own — reloading ourself here would unload the code that is still
+   * running, so the caller does that once all other work has finished.
    */
-  async installOne(managed) {
-    const result = await installFromRepo(this.app, managed);
+  async installOne(managed, force = false) {
+    const result = await installFromRepo(this.app, managed, force);
     if (!result) {
       return "up-to-date";
     }
@@ -545,7 +578,9 @@ Update from the Brat settings tab or the "Update all managed plugins" command.`,
       return "self-updated";
     }
     await reloadInstalledPlugin(this.app, result.pluginId);
-    new import_obsidian4.Notice(`Brat: installed ${result.pluginId} ${result.tag}`);
+    new import_obsidian4.Notice(
+      `Brat: ${force ? "re-installed" : "installed"} ${result.pluginId} ${result.tag}`
+    );
     return "updated";
   }
   reloadSelf() {
